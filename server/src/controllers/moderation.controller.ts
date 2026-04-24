@@ -1,6 +1,7 @@
 import { type Request, type Response } from "express"
 import { flaggedContentStore } from "../db/flagged-content-store"
 import { pool } from "../db/index"
+import { type AuthRequest } from "../middleware/auth.middleware"
 
 interface ModerationActionRequest {
 	action: "delete" | "dismiss" | "warn"
@@ -8,7 +9,7 @@ interface ModerationActionRequest {
 }
 
 export async function listFlaggedContent(
-	req: Request,
+	req: AuthRequest,
 	res: Response,
 ): Promise<void> {
 	try {
@@ -25,7 +26,7 @@ export async function listFlaggedContent(
 }
 
 export async function getFlagDetails(
-	req: Request,
+	req: AuthRequest,
 	res: Response,
 ): Promise<void> {
 	const { flagId } = req.params
@@ -40,23 +41,19 @@ export async function getFlagDetails(
 		// Get the actual content
 		let content: any = null
 		if (flag.content_type === "comment") {
-			const result = await pool.query(
-				`SELECT * FROM comments WHERE id = $1`,
-				[flag.content_id],
-			)
+			const result = await pool.query(`SELECT * FROM comments WHERE id = $1`, [
+				flag.content_id,
+			])
 			content = result.rows[0]
 		} else if (flag.content_type === "proposal") {
-			const result = await pool.query(
-				`SELECT * FROM proposals WHERE id = $1`,
-				[flag.content_id],
-			)
+			const result = await pool.query(`SELECT * FROM proposals WHERE id = $1`, [
+				flag.content_id,
+			])
 			content = result.rows[0]
 		}
 
 		// Get audit log
-		const auditLog = await flaggedContentStore.getAuditForFlag(
-			Number(flagId),
-		)
+		const auditLog = await flaggedContentStore.getAuditForFlag(Number(flagId))
 
 		res.json({ data: { flag, content, auditLog } })
 	} catch (err) {
@@ -66,12 +63,12 @@ export async function getFlagDetails(
 }
 
 export async function actionOnFlag(
-	req: Request,
+	req: AuthRequest,
 	res: Response,
 ): Promise<void> {
 	const { flagId } = req.params
 	const body = req.body as ModerationActionRequest
-	const adminAddress = (req.user as any)?.address
+	const adminAddress = req.user?.address
 
 	const { action, adminNotes } = body
 
@@ -103,7 +100,7 @@ export async function actionOnFlag(
 		const updatedFlag = await flaggedContentStore.updateFlagStatus(
 			Number(flagId),
 			"reviewed",
-			adminAddress,
+			adminAddress ?? "unknown",
 			action as "deleted" | "dismissed" | "warned",
 			adminNotes,
 		)
@@ -112,7 +109,7 @@ export async function actionOnFlag(
 		await flaggedContentStore.addAuditEntry(
 			Number(flagId),
 			action,
-			adminAddress,
+			adminAddress ?? "unknown",
 			adminNotes,
 		)
 
@@ -124,12 +121,13 @@ export async function actionOnFlag(
 }
 
 export async function getAdminModerationStats(
-	req: Request,
+	req: AuthRequest,
 	res: Response,
 ): Promise<void> {
 	try {
 		const pendingResult = await flaggedContentStore.getFlaggedContent("pending")
-		const reviewedResult = await flaggedContentStore.getFlaggedContent("reviewed")
+		const reviewedResult =
+			await flaggedContentStore.getFlaggedContent("reviewed")
 
 		const stats = {
 			pendingCount: pendingResult.length,

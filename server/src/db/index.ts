@@ -3,12 +3,12 @@ import { Pool } from "pg"
 class MockPool {
 	async connect() {
 		return {
-			query: async () => ({ rows: [] }),
+			query: async () => ({ rows: [], rowCount: 0 }),
 			release: () => {},
 		}
 	}
 	async query(_text: string, _params?: any[]) {
-		return { rows: [] }
+		return { rows: [], rowCount: 0 }
 	}
 }
 

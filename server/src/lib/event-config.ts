@@ -1,5 +1,11 @@
 // Event configuration and helpers
 // Import types for reuse
+import {
+	type ContractName,
+	CONTRACT_IDS,
+	EVENTS_TO_INDEX,
+} from "../types/events"
+
 export {
 	type ContractName,
 	type EventTopic,

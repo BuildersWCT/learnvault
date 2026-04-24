@@ -25,6 +25,7 @@ interface NFTMetadata {
 	description: string
 	image: string
 	attributes: NFTAttribute[]
+	[key: string]: unknown
 }
 
 interface CreateMetadataRequest {
